@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens: neutral research-terminal palette, no blue.
+ * Two themes driven by <html data-theme="dark|light">; the toggle in the header switches them.
+ * Pages use only these tokens (bg-panel, border-line, text-mute, text-up …).
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-mute: var(--mute);
+  --color-accent: var(--accent);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn: var(--warn);
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+/* Dark (default): soft black, neutral greys */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0c0c0d;
+  --panel: #141416;
+  --raised: #1c1c1f;
+  --line: #2a2a2e;
+  --ink: #e8e8e6;
+  --mute: #8d8d92;
+  --accent: #f2f2f0;
+  --up: #3fb68b;
+  --down: #e0645c;
+  --warn: #d6a84e;
+}
+
+/* Light: warm white, near-black text */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #fafaf9;
+  --panel: #ffffff;
+  --raised: #f1f1ef;
+  --line: #e2e2df;
+  --ink: #18181a;
+  --mute: #6b6b70;
+  --accent: #111112;
+  --up: #11845b;
+  --down: #c63c33;
+  --warn: #9a6a12;
+}
+
+/* Theme toggle icon: sun in dark mode (click → light), moon in light mode (click → dark) */
+.theme-icon-moon,
+:root[data-theme="light"] .theme-icon-sun {
+  display: none;
+}
+:root[data-theme="light"] .theme-icon-moon {
+  display: block;
+}
+
+html,
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numbers: monospaced, tabular, right-aligned in tables via .num-cell */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dense data tables */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.data-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-raised);
+  color: var(--color-mute);
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-line);
+  white-space: nowrap;
+}
+.data-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
+  vertical-align: middle;
+}
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-raised) 60%, transparent);
+}
+.data-table .num-cell {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form controls */
+.field {
+  height: 28px;
+  border: 1px solid var(--color-line);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  padding: 0 8px;
+  font-size: 12px;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+.field:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.prose-doc h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 20px 0 6px;
+  color: var(--color-ink);
+}
+.prose-doc h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 14px 0 4px;
+}
+.prose-doc p,
+.prose-doc li {
+  color: color-mix(in srgb, var(--color-ink) 85%, var(--color-mute));
+  max-width: 78ch;
+}
+.prose-doc p {
+  margin: 6px 0;
+}
+.prose-doc ul {
+  list-style: square;
+  padding-left: 18px;
+  margin: 6px 0;
+}
+.prose-doc li {
+  margin: 3px 0;
+}
+.prose-doc code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--color-raised);
+  padding: 0 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

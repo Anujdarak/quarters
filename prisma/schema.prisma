@@ -1,0 +1,499 @@
+// Indian Quarterly Earnings Intelligence Platform: database schema.
+//
+// Design principles:
+// - A company is the legal entity, identified by its equity ISIN.
+// - A security is one exchange listing (NSE or BSE, mainboard or SME) of that company.
+// - Financial statements and announcements are never overwritten: revisions get new rows.
+// - Every ingested fact carries a data source, source URL and fetched timestamp.
+// - Calendar dates (listing date, period end, ex-date …) are stored as DateTime at 00:00 UTC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Local development: a SQLite file (DATABASE_URL="file:./dev.db").
+// Cloud: Turso (hosted libSQL), connected at runtime through the libSQL driver adapter
+// when TURSO_DATABASE_URL is set. See docs/DEPLOYMENT.md.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ExchangeCode {
+  NSE
+  BSE
+}
+
+enum ListingSegment {
+  MAINBOARD
+  SME
+}
+
+enum ListingStatus {
+  ACTIVE
+  SUSPENDED
+  DELISTED
+  INACTIVE
+  UNKNOWN
+}
+
+enum SecurityEventType {
+  LISTED
+  NAME_CHANGE
+  SYMBOL_CHANGE
+  SUSPENDED
+  REVOKED
+  DELISTED
+  MIGRATED_SME_TO_MAINBOARD
+  OTHER
+}
+
+enum PeriodType {
+  QUARTER
+  HALF_YEAR
+  NINE_MONTHS
+  FULL_YEAR
+}
+
+enum StatementBasis {
+  STANDALONE
+  CONSOLIDATED
+}
+
+enum FilingVersion {
+  ORIGINAL
+  REVISED
+}
+
+enum AnnouncementTiming {
+  PRE_MARKET
+  MARKET_HOURS
+  POST_MARKET
+  NON_TRADING_DAY
+  UNKNOWN
+}
+
+enum CorporateActionType {
+  SPLIT
+  BONUS
+  RIGHTS
+  DIVIDEND
+  MERGER
+  DEMERGER
+  BUYBACK
+  OTHER
+}
+
+enum UpcomingDateStatus {
+  OFFICIAL
+  ESTIMATED
+  UNKNOWN
+}
+
+enum Assessment {
+  POTENTIALLY_POSITIVE
+  NEUTRAL_MIXED
+  POTENTIALLY_NEGATIVE
+  INSUFFICIENT_INFORMATION
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+enum IngestionStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+/// Registry of every data source and its licence posture.
+model DataSource {
+  id                String   @id @default(cuid())
+  key               String   @unique // e.g. "nse-equity-list", "upstox-candles-v3", "demo"
+  name              String
+  homepage          String?
+  licenceNotes      String?
+  /// True only once public display has been confirmed in writing or by licence.
+  publicDisplay     Boolean  @default(false)
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  ingestionLogs     IngestionLog[]
+
+  @@map("data_sources")
+}
+
+model Exchange {
+  code      ExchangeCode @id
+  name      String
+  timezone  String       @default("Asia/Kolkata")
+  website   String?
+
+  securities Security[]
+  calendar   TradingDay[]
+
+  @@map("exchanges")
+}
+
+model Industry {
+  id         String    @id @default(cuid())
+  sector     String
+  industry   String
+  /// Which classification scheme this came from (e.g. "BSE", "NSE", "manual").
+  scheme     String
+
+  companies  Company[]
+
+  @@unique([scheme, sector, industry])
+  @@map("industries")
+}
+
+model Company {
+  id                  String    @id @default(cuid())
+  /// Equity ISIN. Primary cross-exchange matching key.
+  isin                String    @unique
+  name                String
+  slug                String    @unique
+  industryId          String?
+  industry            Industry? @relation(fields: [industryId], references: [id])
+  /// Indian FY ends in March for nearly all companies; kept explicit for exceptions.
+  fyEndMonth          Int       @default(3)
+  marketCapCr         Decimal?
+  marketCapAsOf       DateTime?
+  marketCapSourceId   String?
+  isDemo              Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  securities          Security[]
+  periods             FinancialPeriod[]
+  announcements       EarningsAnnouncement[]
+  boardMeetings       BoardMeeting[]
+  corporateActions    CorporateAction[]
+  corporateAnnouncements CorporateAnnouncement[]
+  news                CompanyNews[]
+  assessments         EarningsAssessment[]
+  upcoming            UpcomingResult[]
+
+  @@index([name])
+  @@index([industryId])
+  @@map("companies")
+}
+
+/// One listing of a company on one exchange.
+model Security {
+  id           String         @id @default(cuid())
+  companyId    String
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exchange     ExchangeCode
+  exchangeRef  Exchange       @relation(fields: [exchange], references: [code])
+  segment      ListingSegment
+  /// NSE trading symbol (NSE rows only).
+  symbol       String?
+  /// BSE scrip code (BSE rows only).
+  scripCode    String?
+  /// BSE security id / short name, or NSE series.
+  series       String?
+  listingDate  DateTime?
+  status       ListingStatus  @default(UNKNOWN)
+  faceValue    Decimal?
+  sourceKey    String
+  sourceUrl    String?
+  fetchedAt    DateTime
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  events       SecurityEvent[]
+  prices       HistoricalPrice[]
+
+  @@unique([exchange, symbol])
+  @@unique([exchange, scripCode])
+  @@unique([companyId, exchange, segment])
+  @@index([companyId])
+  @@map("securities")
+}
+
+model SecurityEvent {
+  id          String            @id @default(cuid())
+  securityId  String
+  security    Security          @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  type        SecurityEventType
+  effectiveOn DateTime?
+  oldValue    String?
+  newValue    String?
+  sourceKey   String
+  sourceUrl   String?
+  createdAt   DateTime          @default(now())
+
+  @@index([securityId, effectiveOn])
+  @@map("security_events")
+}
+
+model TradingDay {
+  exchange    ExchangeCode
+  exchangeRef Exchange     @relation(fields: [exchange], references: [code])
+  date        DateTime
+  isTrading   Boolean
+  note        String?
+  sourceKey   String
+
+  @@id([exchange, date])
+  @@map("trading_calendar")
+}
+
+/// A reporting period (e.g. Q2 FY2026-27 = Jul to Sep 2026).
+model FinancialPeriod {
+  id          String     @id @default(cuid())
+  companyId   String
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  periodType  PeriodType
+  /// FY label by ending year: FY2027 = Apr 2026 to Mar 2027.
+  fiscalYear  Int
+  /// 1-4 for quarters, 1-2 for half-years, null otherwise.
+  fiscalPart  Int?
+  periodStart DateTime
+  periodEnd   DateTime
+
+  results     QuarterlyResult[]
+
+  @@unique([companyId, periodType, periodEnd])
+  @@index([companyId, periodEnd])
+  @@map("financial_periods")
+}
+
+/// One filed statement for a period. Revisions are new rows and never overwrite.
+model QuarterlyResult {
+  id              String         @id @default(cuid())
+  periodId        String
+  period          FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  basis           StatementBasis
+  version         FilingVersion
+  /// 0 = original, 1..n = successive revisions.
+  revision        Int            @default(0)
+  audited         Boolean?
+  exchange        ExchangeCode?
+  filedAt         DateTime?
+  announcementId  String?
+  announcement    EarningsAnnouncement? @relation(fields: [announcementId], references: [id])
+  /// Reporting unit of the source document, normalised to INR crore in metrics.
+  sourceUnit      String?
+  documentUrl     String?
+  xbrlUrl         String?
+  sourceKey       String
+  fetchedAt       DateTime
+  createdAt       DateTime       @default(now())
+
+  metrics         FinancialMetric[]
+
+  @@unique([periodId, basis, revision])
+  @@map("quarterly_results")
+}
+
+/// A single line item. `value` is in INR crore except per-share and ratio items.
+model FinancialMetric {
+  id        String          @id @default(cuid())
+  resultId  String
+  result    QuarterlyResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  /// Canonical key: revenue_from_operations, total_income, total_expenses, operating_profit,
+  /// ebitda, pbt, net_profit, eps_basic, eps_diluted, borrowings, operating_cash_flow, ...
+  key       String
+  value     Decimal
+  unit      String          @default("INR_CR")
+  /// True when derived locally (e.g. EBITDA) rather than reported.
+  derived   Boolean         @default(false)
+  /// Original XBRL tag / line label for traceability.
+  sourceTag String?
+
+  @@unique([resultId, key])
+  @@map("financial_metrics")
+}
+
+/// Actual publication of results to the exchange. Kept separate from board meeting intimations.
+model EarningsAnnouncement {
+  id                 String             @id @default(cuid())
+  companyId          String
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exchange           ExchangeCode
+  fiscalYear         Int
+  periodType         PeriodType
+  fiscalPart         Int?
+  periodEnd          DateTime
+  boardMeetingDate   DateTime?
+  /// Exchange dissemination / broadcast timestamp (UTC stored, IST displayed).
+  announcedAt        DateTime
+  /// Exchange receipt / company submission timestamp, if published.
+  submittedAt        DateTime?
+  timing             AnnouncementTiming @default(UNKNOWN)
+  basis              StatementBasis?
+  version            FilingVersion      @default(ORIGINAL)
+  subject            String?
+  documentUrl        String?
+  sourceKey          String
+  sourceUrl          String?
+  fetchedAt          DateTime
+  createdAt          DateTime           @default(now())
+
+  results            QuarterlyResult[]
+
+  @@unique([companyId, exchange, announcedAt, version, basis])
+  @@index([companyId, periodEnd])
+  @@index([announcedAt])
+  @@map("earnings_announcements")
+}
+
+model BoardMeeting {
+  id            String       @id @default(cuid())
+  companyId     String
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exchange      ExchangeCode
+  meetingDate   DateTime
+  purpose       String
+  intimatedAt   DateTime?
+  sourceKey     String
+  sourceUrl     String?
+  fetchedAt     DateTime
+
+  @@unique([companyId, exchange, meetingDate, purpose])
+  @@index([meetingDate])
+  @@map("board_meetings")
+}
+
+model UpcomingResult {
+  id            String             @id @default(cuid())
+  companyId     String
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fiscalYear    Int
+  periodType    PeriodType
+  fiscalPart    Int?
+  status        UpcomingDateStatus
+  expectedDate  DateTime?
+  boardMeetingId String?
+  /// For ESTIMATED rows: how the estimate was derived.
+  method        String?
+  sourceUrl     String?
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([companyId, fiscalYear, periodType, fiscalPart])
+  @@index([expectedDate])
+  @@map("upcoming_results")
+}
+
+/// Unadjusted daily bars. Adjustment factors are derived from corporate_actions at query time.
+model HistoricalPrice {
+  securityId  String
+  security    Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+  date        DateTime
+  open        Decimal
+  high        Decimal
+  low         Decimal
+  close       Decimal
+  volume      BigInt
+  sourceKey   String
+  fetchedAt   DateTime
+
+  @@id([securityId, date])
+  @@map("historical_prices")
+}
+
+model CorporateAction {
+  id          String              @id @default(cuid())
+  companyId   String
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type        CorporateActionType
+  exDate      DateTime?
+  recordDate  DateTime?
+  announcedOn DateTime?
+  /// Split/bonus ratio as numerator:denominator, dividend amount per share, etc.
+  ratioNum    Decimal?
+  ratioDen    Decimal?
+  amount      Decimal?
+  description String?
+  sourceKey   String
+  sourceUrl   String?
+  fetchedAt   DateTime
+
+  @@unique([companyId, type, exDate, description])
+  @@index([companyId, exDate])
+  @@map("corporate_actions")
+}
+
+model CorporateAnnouncement {
+  id          String       @id @default(cuid())
+  companyId   String
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  exchange    ExchangeCode
+  category    String
+  subject     String
+  announcedAt DateTime
+  documentUrl String?
+  sourceKey   String
+  sourceUrl   String?
+  fetchedAt   DateTime
+
+  @@unique([companyId, exchange, announcedAt, subject])
+  @@index([companyId, announcedAt])
+  @@map("corporate_announcements")
+}
+
+model CompanyNews {
+  id           String     @id @default(cuid())
+  companyId    String
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  headline     String
+  publisher    String
+  publishedAt  DateTime
+  url          String
+  sentiment    Sentiment?
+  whyItMatters String?
+  sourceKey    String
+  fetchedAt    DateTime
+
+  @@unique([companyId, url])
+  @@index([companyId, publishedAt])
+  @@map("company_news")
+}
+
+model EarningsAssessment {
+  id             String     @id @default(cuid())
+  companyId      String
+  company        Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fiscalYear     Int
+  periodType     PeriodType
+  fiscalPart     Int?
+  assessment     Assessment
+  /// Only populated once a calibration study exists.
+  confidence     Decimal?
+  /// Structured evidence, catalysts, risks, missing info and sources (validated JSON).
+  evidence       Json
+  modelId        String?
+  inputsHash     String
+  generatedAt    DateTime   @default(now())
+
+  @@index([companyId, generatedAt])
+  @@map("earnings_assessments")
+}
+
+model IngestionLog {
+  id           String          @id @default(cuid())
+  dataSourceId String
+  dataSource   DataSource      @relation(fields: [dataSourceId], references: [id])
+  job          String
+  status       IngestionStatus
+  startedAt    DateTime        @default(now())
+  finishedAt   DateTime?
+  recordsRead  Int             @default(0)
+  inserted     Int             @default(0)
+  updated      Int             @default(0)
+  skipped      Int             @default(0)
+  errors       Json?
+  /// File name / hash or request window this run covered.
+  inputRef     String?
+
+  @@index([job, startedAt])
+  @@map("ingestion_logs")
+}

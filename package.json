@@ -1,0 +1,53 @@
+{
+  "name": "quarters-earnings-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "seed:demo": "tsx --env-file-if-exists=.env scripts/seed-demo.ts",
+    "import:master": "tsx --env-file-if-exists=.env scripts/import-master.ts",
+    "import:nse": "tsx --env-file-if-exists=.env scripts/import-nse-filings.ts",
+    "sync": "tsx --env-file-if-exists=.env scripts/sync-upstox.ts",
+    "db:copy:turso": "tsx --env-file-if-exists=.env scripts/copy-to-turso.ts",
+    "db:migrate:turso": "tsx --env-file-if-exists=.env scripts/turso-migrate.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "@prisma/adapter-libsql": "^6.19.3",
+    "@prisma/client": "^6.19.3",
+    "csv-parse": "^7.0.3",
+    "next": "16.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "prisma": "^6.19.3",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true,
+    "prisma@6.19.3": true
+  },
+  "license": "Apache-2.0"
+}
