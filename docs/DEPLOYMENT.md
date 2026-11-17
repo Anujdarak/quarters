@@ -43,19 +43,27 @@ With the same two variables set, run one of these:
 
 ## 4. Deploy the web app on Vercel
 
-1. Import the repository.
-2. Set these as **server** environment variables (never `NEXT_PUBLIC_`):
+Import the repository into Vercel as a Next.js project. The existing
+`vercel.json` selects the Mumbai (`bom1`) region. Vercel detects the framework
+and uses `npm run build`; the build script also generates the Prisma client.
+
+Add these environment variables in the Vercel project settings for each
+environment you deploy. Keep secrets server-side; never use the `NEXT_PUBLIC_`
+prefix for credentials:
 
    | Variable | Value |
    |---|---|
+   | `DATABASE_URL` | `file:./dev.db` (required by Prisma's schema; cloud queries use Turso when configured) |
    | `TURSO_DATABASE_URL` | Your `libsql://...` URL |
    | `TURSO_AUTH_TOKEN` | Your token |
-   | `DATABASE_URL` | `file:./dev.db` (required by Prisma's schema file and unused at runtime when Turso is set) |
    | `DATA_MODE` | `demo` or `live` |
    | `UPSTOX_ANALYTICS_TOKEN` | Only if the server should fetch live quotes / price charts |
    | `PUBLIC_DISPLAY_UPSTOX` | `false` (Upstox-derived sections are hidden on the public site) |
 
-3. The build command is `npm run build`.
+Keep `.env` out of Git; `.gitignore` already excludes it. Apply schema changes
+to Turso with `npm run db:migrate:turso` before deploying code that depends on
+them. Vercel creates preview deployments for branches and production
+deployments from the configured production branch.
 
 ## Schema changes later
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { MarketPanel } from "@/components/live-market";
 import { fmtInt } from "@/components/ui";
@@ -70,6 +71,7 @@ export default function HomePage() {
 }
 
 async function CompanyCount() {
+  await connection();
   const companies = await companyCount();
   if (companies === 0) return null;
   return <span className="num text-ink">{fmtInt(companies)} companies tracked.</span>;

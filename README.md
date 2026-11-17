@@ -78,8 +78,6 @@ Then set `DATA_MODE=live`.
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deployment |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution rules |
 
-## Licence
+## Data rights
 
-Code: [Apache-2.0](LICENSE). It is permissive and includes an explicit patent grant.
-
-**The code licence does not cover third-party data.** Market data, filings and provider API responses stay subject to their owners' terms (see [DATA_SOURCES.md](DATA_SOURCES.md)). Never commit downloaded data or credentials.
+Market data, filings and provider API responses are subject to their owners' terms (see [DATA_SOURCES.md](DATA_SOURCES.md)). Never commit downloaded data or credentials.
