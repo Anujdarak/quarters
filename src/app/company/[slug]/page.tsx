@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import {
   Badge,
@@ -12,8 +13,9 @@ import {
   fmtDateTimeIst,
   fmtInt,
 } from "@/components/ui";
-import { AnnouncementsPanel, PriceChartPanel, ResultsHistoryPanel } from "@/components/company-earnings";
+import { AnnouncementsPanel, nextResultsText, PriceChartPanel, ResultsHistoryPanel } from "@/components/company-earnings";
 import { UpstoxGate } from "@/components/earnings-ui";
+import { istToday } from "@/lib/domain/deadlines";
 import { quarterLabel, type Quarter } from "@/lib/domain/fiscal";
 import { upstoxDisplayAllowed } from "@/lib/providers/upstox";
 import { getCompanyBySlug } from "@/lib/queries/companies";
@@ -40,6 +42,8 @@ async function Company({
   params: PageProps<"/company/[slug]">["params"];
   searchParams: PageProps<"/company/[slug]">["searchParams"];
 }) {
+  await connection();
+  const today = istToday();
   const { slug } = await params;
   const sq = (await searchParams).quarter;
   const selectedQuarter = Array.isArray(sq) ? sq[0] : sq;
@@ -60,7 +64,7 @@ async function Company({
       ])
     : [[], null, [], [], []];
   const nextResults = upcoming
-    ? { label: quarterLabel(upcoming.fiscalYear, (upcoming.fiscalPart ?? 1) as Quarter), deadline: upcoming.expectedDate }
+    ? { label: quarterLabel(upcoming.fiscalYear, (upcoming.fiscalPart ?? 1) as Quarter), deadline: upcoming.expectedDate, status: upcoming.status }
     : null;
 
   return (
@@ -95,7 +99,7 @@ async function Company({
                 label={priceListing ? `${priceListing.exchange}: ${priceListing.symbol ?? priceListing.scripCode}` : ""}
               />
             </div>
-            <AnnouncementsPanel items={announcements} upcoming={nextResults} />
+            <AnnouncementsPanel items={announcements} upcoming={nextResults} today={today} />
           </div>
         </UpstoxGate>
       </div>
@@ -152,9 +156,9 @@ async function Company({
             </dd>
             <dt className="text-mute">Latest results</dt>
             <dd>{quarters[0] ? quarters[0].label : <span className="text-mute">Not available</span>}</dd>
-            <dt className="text-mute">Next results due</dt>
+            <dt className="text-mute">Results status</dt>
             <dd className="num">
-              {nextResults ? `by ${fmtDate(nextResults.deadline)}` : <span className="text-mute">{allowed ? "Not due yet" : "Not available"}</span>}
+              {nextResults ? nextResultsText(nextResults, today) : <span className="text-mute">{allowed ? "Not due yet" : "Not available"}</span>}
             </dd>
           </dl>
         </Panel>

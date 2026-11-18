@@ -1,5 +1,6 @@
 import { Cr, Pct, SourceNote } from "./earnings-ui";
 import { DataUnavailable, Panel, fmtDate, fmtDateTimeIst } from "./ui";
+import { daysFromDeadline } from "@/lib/domain/deadlines";
 import { fiscalQuarterOf, fiscalYearOf } from "@/lib/domain/fiscal";
 import { REACTION_DAYS, computeReaction, reactionDayLabel } from "@/lib/domain/reaction";
 import type { Candle } from "@/lib/ingestion/upstox-candles";
@@ -8,20 +9,38 @@ import type { companyAnnouncements, companyQuarters } from "@/lib/queries/earnin
 type Quarters = Awaited<ReturnType<typeof companyQuarters>>;
 type Announcements = Awaited<ReturnType<typeof companyAnnouncements>>;
 
-export function AnnouncementsPanel({ items, upcoming }: { items: Announcements; upcoming: { label: string; deadline: Date | null } | null }) {
+type NextResults = {
+  label: string;
+  deadline: Date | null;
+  status: "OFFICIAL" | "ESTIMATED" | "UNKNOWN";
+};
+
+export function nextResultsText(upcoming: NextResults, today: Date): string {
+  if (!upcoming.deadline) return "Date not available";
+
+  const date = fmtDate(upcoming.deadline);
+  const days = daysFromDeadline(upcoming.deadline, today);
+  if (upcoming.status === "OFFICIAL") {
+    if (days > 0) return `NSE board meeting was ${date}`;
+    if (days === 0) return `NSE board meeting is today (${date})`;
+    return `NSE board meeting scheduled for ${date}`;
+  }
+  if (upcoming.status !== "ESTIMATED") return "Date not confirmed";
+  if (days > 0) {
+    const ago = `${days} ${days === 1 ? "day" : "days"} ago`;
+    return `SEBI filing deadline passed ${date} (${ago}); results are not in our data yet`;
+  }
+  if (days === 0) return `SEBI filing deadline is today (${date})`;
+  return `SEBI filing deadline ${date}; results may be announced earlier`;
+}
+
+export function AnnouncementsPanel({ items, upcoming, today }: { items: Announcements; upcoming: NextResults | null; today: Date }) {
   return (
     <Panel title="Results timeline">
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[12px]">
-        <dt className="text-mute">Next results</dt>
+        <dt className="text-mute">Results status</dt>
         <dd>
-          {upcoming ? (
-            <>
-              {upcoming.label}, due by <span className="num">{fmtDate(upcoming.deadline)}</span>
-              <span className="text-mute"> (SEBI deadline)</span>
-            </>
-          ) : (
-            <span className="text-mute">Not due yet: the current quarter has not ended</span>
-          )}
+          {upcoming ? `${upcoming.label}: ${nextResultsText(upcoming, today)}` : <span className="text-mute">Not due yet: the current quarter has not ended</span>}
         </dd>
       </dl>
       {items.length > 0 ? (

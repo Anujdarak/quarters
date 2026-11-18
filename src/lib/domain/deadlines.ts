@@ -8,6 +8,11 @@ import { endOfMonth } from "./fiscal";
 
 const DAY = 86_400_000;
 
+/** Difference between an IST calendar date and a date-only deadline: negative=future, 0=today, positive=past. */
+export function daysFromDeadline(deadline: Date, today: Date): number {
+  return Math.floor((today.getTime() - deadline.getTime()) / DAY);
+}
+
 /** End of the quarter after the one ending on `periodEnd` (both UTC date-only). */
 export function nextQuarterEnd(periodEnd: Date): Date {
   return endOfMonth(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth() + 1 + 3);

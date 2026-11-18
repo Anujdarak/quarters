@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Pct, SourceNote, UpstoxGate } from "@/components/earnings-ui";
 import { Badge, EmptyState, PageHeader, Panel, Skeleton, cx, fmtDate, fmtDateTimeIst, fmtInt } from "@/components/ui";
-import { istToday } from "@/lib/domain/deadlines";
+import { daysFromDeadline, istToday } from "@/lib/domain/deadlines";
 import { fiscalQuarterOf, fiscalYearLabel, fiscalYearOf, quarterBounds, type Quarter } from "@/lib/domain/fiscal";
 import { REACTION_DAYS, reactionDayLabel } from "@/lib/domain/reaction";
 import { reactionsForQuarter, RESULTS_PAGE_SIZE, type ReactionSort } from "@/lib/queries/earnings";
@@ -80,7 +80,11 @@ async function Reactions({ searchParams }: { searchParams: PageProps<"/reactions
         <Panel>
           <EmptyState title={data.ended ? `No Q${q} ${fy} results announced yet` : `Q${q} ${fy} has not ended yet`}>
             {data.ended
-              ? `Companies must publish results for this quarter by ${fmtDate(data.deadline)}.`
+              ? daysFromDeadline(data.deadline, today) > 0
+                ? `The SEBI filing deadline was ${fmtDate(data.deadline)} (${daysFromDeadline(data.deadline, today)} days ago). Our data may not yet reflect all exchange filings.`
+                : daysFromDeadline(data.deadline, today) === 0
+                  ? `The SEBI filing deadline is today, ${fmtDate(data.deadline)}.`
+                  : `Companies must publish results for this quarter by ${fmtDate(data.deadline)}.`
               : `The quarter ends on ${fmtDate(data.periodEnd)}; results are due by ${fmtDate(data.deadline)}. Reactions will appear here as companies announce.`}
           </EmptyState>
         </Panel>

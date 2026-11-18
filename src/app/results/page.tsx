@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Pct, SourceNote, UpstoxGate } from "@/components/earnings-ui";
 import { Badge, EmptyState, PageHeader, Panel, Skeleton, cx, fmtDate, fmtDateTimeIst, fmtInt } from "@/components/ui";
-import { istToday } from "@/lib/domain/deadlines";
+import { daysFromDeadline, istToday } from "@/lib/domain/deadlines";
 import { fiscalQuarterOf, fiscalYearLabel, fiscalYearOf, quarterBounds, type Quarter } from "@/lib/domain/fiscal";
 import { REACTION_DAYS, reactionDayLabel } from "@/lib/domain/reaction";
 import { quarterHub, RESULTS_PAGE_SIZE } from "@/lib/queries/earnings";
@@ -43,6 +43,7 @@ async function Hub({ searchParams }: { searchParams: PageProps<"/results">["sear
   const page = Math.max(1, Number(one(sp.page)) || 1);
   const hub = await quarterHub({ fy, q, today, page });
   const pages = Math.max(1, Math.ceil(hub.goodCount / RESULTS_PAGE_SIZE));
+  const deadlineDays = daysFromDeadline(hub.deadline, today);
   const reactionHref = (slug: string) => `/company/${slug}?quarter=${fy}-${q}#reaction`;
 
   return (
@@ -73,6 +74,17 @@ async function Hub({ searchParams }: { searchParams: PageProps<"/results">["sear
           <EmptyState title={`Quarter ${q} ${fy} has not ended yet`}>
             It ends on {fmtDate(hub.periodEnd)}. Companies must publish results by {fmtDate(hub.deadline)} (SEBI deadline).{" "}
             {hub.upcomingCount > 0 && `${fmtInt(hub.upcomingCount)} companies will report for this quarter.`}
+          </EmptyState>
+        </Panel>
+      ) : null}
+      {hub.ended && hub.announcedCount === 0 ? (
+        <Panel>
+          <EmptyState title={`No Q${q} ${fy} results in our data yet`}>
+            {deadlineDays > 0
+              ? `The SEBI filing deadline was ${fmtDate(hub.deadline)} (${deadlineDays} ${deadlineDays === 1 ? "day" : "days"} ago). Our data may not yet reflect all exchange filings.`
+              : deadlineDays === 0
+                ? `The SEBI filing deadline is today, ${fmtDate(hub.deadline)}.`
+                : `The SEBI filing deadline is ${fmtDate(hub.deadline)}.`}
           </EmptyState>
         </Panel>
       ) : null}
@@ -182,15 +194,25 @@ async function Hub({ searchParams }: { searchParams: PageProps<"/results">["sear
                     {u.symbol && <span className="num ml-1.5 text-[11px] text-mute">{u.symbol}</span>}
                   </span>
                   <span className="num shrink-0 text-[11px]">
-                    {u.meetingDate ? <span className="text-ink">{fmtDate(u.meetingDate)}</span> : <span className="text-mute">by {fmtDate(hub.deadline)}</span>}
+                    {u.meetingDate ? (
+                      <span className="text-ink">meeting {fmtDate(u.meetingDate)}</span>
+                    ) : deadlineDays > 0 ? (
+                      <span className="text-down" title="SEBI filing deadline; our data may lag exchange filings">
+                        {fmtDate(hub.deadline)} · {deadlineDays}d overdue
+                      </span>
+                    ) : deadlineDays === 0 ? (
+                      <span className="text-warn">deadline today</span>
+                    ) : (
+                      <span className="text-mute">by {fmtDate(hub.deadline)}</span>
+                    )}
                   </span>
                 </li>
               ))}
             </ul>
           )}
           <SourceNote>
-            Dates in white are official board-meeting dates (NSE). &ldquo;by&rdquo; dates are the SEBI deadline: results can come any
-            day before it.
+            Dates marked &ldquo;meeting&rdquo; are official NSE board-meeting dates. Other dates are SEBI filing deadlines, not
+            confirmed announcement dates; our data may lag exchange filings.
             {hub.upcomingCount > hub.upcoming.length && ` Showing ${hub.upcoming.length} of ${fmtInt(hub.upcomingCount)}; official dates first.`}
           </SourceNote>
         </Panel>

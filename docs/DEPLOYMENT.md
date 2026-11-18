@@ -1,14 +1,14 @@
 # Deployment
 
-Free-tier-friendly target:
+Deployment components:
 
 | Component | Host |
 |---|---|
-| Web | Vercel (Hobby) |
+| Web | Any Node.js host that supports Next.js |
 | Database | [Turso](https://turso.tech) free plan: 100 databases, 5 GB, 500M row reads and 10M row writes per month (as listed on turso.tech/pricing, Nov 2026) |
 | Scheduled ingestion (Phase 3+) | GitHub Actions cron |
 
-Free plans have their own terms of use. Check them before monetising.
+Check your hosting and database providers' terms before monetising.
 
 ## 1. Create the Turso database
 
@@ -41,15 +41,15 @@ With the same two variables set, run one of these:
 | Demo | `npm run seed:demo` |
 | Live (Upstox) | `npm run import:master -- --upstox` then `npm run sync` |
 
-## 4. Deploy the web app on Vercel
+## 4. Deploy the web app
 
-Import the repository into Vercel as a Next.js project. The existing
-`vercel.json` selects the Mumbai (`bom1`) region. Vercel detects the framework
-and uses `npm run build`; the build script also generates the Prisma client.
+Use a Node.js host that supports a long-running Next.js server. Configure its
+build command as `npm ci && npm run build` and its start command as `npm start`.
+The host must provide the `PORT` environment variable. Do not deploy this app as
+a static export: its pages and data require a server runtime.
 
-Add these environment variables in the Vercel project settings for each
-environment you deploy. Keep secrets server-side; never use the `NEXT_PUBLIC_`
-prefix for credentials:
+Set these environment variables in your host's project settings. Keep secrets
+server-side; never use the `NEXT_PUBLIC_` prefix for credentials:
 
    | Variable | Value |
    |---|---|
@@ -62,8 +62,8 @@ prefix for credentials:
 
 Keep `.env` out of Git; `.gitignore` already excludes it. Apply schema changes
 to Turso with `npm run db:migrate:turso` before deploying code that depends on
-them. Vercel creates preview deployments for branches and production
-deployments from the configured production branch.
+them. Use your host's deployment settings to manage previews and production
+deployments.
 
 ## Schema changes later
 

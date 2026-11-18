@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ymd } from "./fiscal";
-import { nextQuarterEnd, pendingResults, resultsDeadline } from "./deadlines";
+import { daysFromDeadline, nextQuarterEnd, pendingResults, resultsDeadline } from "./deadlines";
 
 describe("results deadlines (SEBI LODR Reg 33)", () => {
   it("next quarter end", () => {
@@ -17,5 +17,12 @@ describe("results deadlines (SEBI LODR Reg 33)", () => {
   it("pending only once the next quarter has ended", () => {
     expect(pendingResults(ymd(2026, 6, 30), ymd(2026, 11, 14))).toEqual({ periodEnd: ymd(2026, 9, 30), deadline: ymd(2026, 11, 14) });
     expect(pendingResults(ymd(2026, 9, 30), ymd(2026, 11, 14))).toBeNull();
+  });
+
+  it("calculates deadline status from the current date", () => {
+    const deadline = ymd(2026, 11, 14);
+    expect(daysFromDeadline(deadline, ymd(2026, 11, 13))).toBe(-1);
+    expect(daysFromDeadline(deadline, ymd(2026, 11, 14))).toBe(0);
+    expect(daysFromDeadline(deadline, ymd(2026, 11, 18))).toBe(4);
   });
 });

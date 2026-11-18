@@ -9,4 +9,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 ## Deploying this project
-Vercel is the deployment target. Follow docs/DEPLOYMENT.md and never commit `.env` files or credentials.
+Use the provider-neutral instructions in docs/DEPLOYMENT.md. Never commit `.env` files or credentials.
